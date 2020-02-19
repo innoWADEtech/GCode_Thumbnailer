@@ -1,0 +1,131 @@
+#!/usr/bin/python3
+
+import sys
+import subprocess
+import os
+
+def gcode(infile,outfile,size):
+    print("process")
+    with open(infile, 'r') as f:
+        gf = f.readlines()
+    lz = 0
+    x1 = 0
+    y1 = 0
+    xyz = []
+    skip = 0
+    # Process each line in GCode file
+    #g,x,y,z,e,f = None,None,None,None,None,None
+    for line in gf:
+        if "Ender 3 Custom" in line:
+            skip = 1
+        if "End of custom" in line:
+            skip = 0
+        if skip == 1:
+            continue
+        g,x,y,z,e,f = -1,-1,-1,-1,-1,-1
+        if line.startswith('G0') or line.startswith('G1'):
+            read = line.split(';')
+            data = read[0].split(' ')
+            for item in data:
+                if 'G' in item:
+                    g = item[1:]
+                if 'X' in item:
+                    x = float(item[1:])
+                if 'Y' in item:
+                    y = float(item[1:])
+                if 'Z' in item:
+                    if '\n' in item:
+                        z = float(item[1:-1])
+                    else:
+                        z = float(item[1:])
+                if 'E' in item:
+                    e = float(item[1:])
+            if z != -1: 
+                if z != lz:
+                    lz = z
+            if (x != -1) and (y != -1) and e > 0:
+                if x1 != x and y1 != y:
+                    xyz.append((x1,y1,x,y,lz))
+            if x >= 0:
+                x1 = x
+            if y >= 0:
+                y1 = y
+               
+    cylinders = []
+    nozzle = 0.2
+    cylinder = "cylinder {{<{0},{1},{2}>,<{3},{4},{5}>,{6}}}\n"
+    for p in xyz:
+        cylinders.append(cylinder.format(p[0],p[1],p[4],p[2],p[3],p[4],nozzle))
+        
+    header = '#declare gcode = union {\n'
+    footer = '''}
+    #include "math.inc"
+  #include "finish.inc"
+  #include "transforms.inc"
+  #include "colors.inc"
+  background{White}
+  light_source {
+    <-500,500,400>
+    rgb 1
+    shadowless
+  }
+  global_settings {
+    assumed_gamma 2
+  }
+  #declare Min = min_extent(gcode);
+  #declare Max = max_extent(gcode);
+  #declare bottom_diag = sqrt(pow(Max.y - Min.y, 2) + pow(Max.x - Min.x, 2));
+  #debug concat("bottom_diag:", str(bottom_diag, 5, 0))
+  #declare box_diag = sqrt(pow(bottom_diag, 2) + pow(Max.z - Min.z, 2));
+  #debug concat("box_diag:", str(box_diag, 5, 0))
+  camera {
+    location <0,box_diag*2,0>
+    rotate <20,0,45>
+    angle 30
+    look_at <0,0,0>
+    right x //right x*$sz/$sz
+  }
+  /*
+  sky_sphere {
+    pigment {
+    gradient y
+    color_map {
+      [0.0 rgb <1.0,1.0,1.0>] //153, 178.5, 255 //150, 240, 192
+      [0.7 rgb <0.9,0.9,0.9>] // 0, 25.5, 204 //155, 240, 96
+    }
+    scale 2
+    translate 1
+    }
+  }
+  */
+  object {
+    gcode
+    Center_Trans(gcode, x+y+z)   
+    texture {
+      pigment {rgb <0.5,1,0.5>}
+      finish {phong 0.9 diffuse 1}
+    }
+}
+    '''
+    with open("gcode.pov","w") as f:
+        f.write(header)
+        f.writelines(cylinders)
+        f.write(footer)
+
+    subprocess.run(["povray","-d","-v","-igcode.pov","+FN","+W"+size,"+H"+size,"-o"+outfile,"+Q9","+AM1","+A","+UA"])
+    os.remove("gcode.pov")
+    if ".png" not in outfile:
+        os.rename(outfile+".png",outfile)
+
+
+try:
+    progname, infile, outfile, size = sys.argv
+except ValueError:
+    sys.exit('Usage: %s <Input> <Output> <Size>' % sys.argv[0])
+gcode(infile, outfile, size)
+
+
+
+
+
+
