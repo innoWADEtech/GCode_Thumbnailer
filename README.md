@@ -3,7 +3,7 @@ This thumbnailer uses python script to convert gcode to povray and run povray fo
 It only converts G0 & G1 to cylinders. Curved lines G3 & G4 are not supported currently.
 Script removes initial extruded line added by Cura for Ender 3 to maximize object size.
 
-![Cube.png](github.com/innoWADEtech/GCode_Thumbnailer/blob/master/cube.png)
+![Cube.png](github.com/innoWADEtech/GCode_Thumbnailer/master/cube.png)
 
 ## Requirements
 - install PovRay `sudo apt install povray` and `(cd ~; ln -s /etc/povray/ .povray)`
